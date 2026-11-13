@@ -144,7 +144,18 @@
       <ul class="lines" id="lines"></ul>
     </div>
 
-    <div class="barrow">
+    <!-- Shown right after "Order on WhatsApp". The cart is emptied at that
+         moment so a returning customer starts fresh, and this is the way
+         back if WhatsApp never opened or they did not press Send. -->
+    <div class="sent" id="sent" role="status" hidden>
+      <p class="senttext">Your order is in WhatsApp. Press <b>Send</b> there to place it.</p>
+      <div class="sentacts">
+        <button class="restore" id="restore" type="button">Didn't send? Restore order</button>
+        <button class="dismiss" id="dismiss" type="button" aria-label="Close">&times;</button>
+      </div>
+    </div>
+
+    <div class="barrow" id="barrow">
       <button class="tally" id="tally" type="button"
               aria-expanded="false" aria-controls="panel">
         <span class="tallytext">

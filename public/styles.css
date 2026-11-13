@@ -369,6 +369,20 @@ input[type=search]:focus-visible{outline:2px solid var(--red);outline-offset:1px
 .go:focus-visible{outline:2px solid var(--bar-ink);outline-offset:2px}
 .clear{background:none;border:0;color:var(--bar-dim);font:inherit;font-size:.8rem;
        cursor:pointer;text-decoration:underline}
+.barrow[hidden]{display:none}
+
+/* ---------- "order sent" notice ----------
+   Lives inside the bar so it inherits the bar's colours in both themes. */
+.sent{padding-top:13px}
+.sent[hidden]{display:none}
+.senttext{margin:0 0 8px;font-size:.9rem;line-height:1.45}
+.sentacts{display:flex;align-items:center;gap:10px}
+.restore{flex:1;background:var(--bar-ctl);border:0;color:var(--bar-ink);
+         border-radius:var(--r);padding:10px 14px;font:inherit;font-size:.85rem;
+         font-weight:600;cursor:pointer;text-align:left}
+.dismiss{background:none;border:0;color:var(--bar-dim);font:inherit;font-size:1.3rem;
+         line-height:1;cursor:pointer;width:36px;height:36px}
+.restore:focus-visible,.dismiss:focus-visible{outline:2px solid var(--bar-ink);outline-offset:2px}
 
 footer{color:var(--dim);font-size:.78rem;line-height:1.7;padding:28px 0 12px;
        border-top:1px solid var(--line);margin-top:28px}

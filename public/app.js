@@ -104,6 +104,9 @@ async function boot() {
   setHint(false);
   $("waPlain").href = `https://wa.me/${CFG_NUMBER}`;
 
+  // Came back after sending: offer the way back instead of a refilled cart.
+  if (cart.length === 0 && loadLast()) $("sent").hidden = false;
+
   render();
   renderCart();
 }
@@ -571,7 +574,13 @@ function renderCart() {
   const n = cart.reduce((s, c) => s + c.qty, 0);
   const total = cart.reduce((s, c) => s + c.qty * c.price, 0);
 
-  $("bar").classList.toggle("up", n > 0);
+  // Any new line means a new order is being built, so the "sent" notice
+  // for the previous one has done its job.
+  if (n > 0) setSent(false);
+  const sentShown = !$("sent").hidden;
+
+  $("bar").classList.toggle("up", n > 0 || sentShown);
+  $("barrow").hidden = n === 0;
   $("cartN").textContent = `${n} item${n === 1 ? "" : "s"} in your order`;
   $("cartT").textContent = rs(total);
 
@@ -789,5 +798,72 @@ $("lines").addEventListener("click", (e) => {
 });
 
 $("clear").addEventListener("click", () => { cart = []; renderCart(); });
+
+/* ---------- after the order is sent ----------
+   The bug this fixes: the cart used to survive being sent. A customer who
+   came back later found her first order still sitting in the cart, and
+   her next WhatsApp message carried it again. Now tapping "Order on
+   WhatsApp" empties the cart and keeps a copy aside for a short while,
+   in case WhatsApp did not open or the message was never sent. */
+const LAST_KEY = "lastOrder";
+const LAST_TTL = 2 * 60 * 60 * 1000;   // offer Restore for two hours
+
+function setSent(show) {
+  $("sent").hidden = !show;
+  if (!show) { try { localStorage.removeItem(LAST_KEY); } catch {} }
+}
+
+function loadLast() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAST_KEY) || "null");
+    if (!raw || !Array.isArray(raw.cart) || !(Date.now() - raw.at < LAST_TTL)) return null;
+    return raw.cart;
+  } catch { return null; }
+}
+
+$("go").addEventListener("click", (e) => {
+  // Take over the navigation: the href has to be read BEFORE the cart is
+  // emptied, because renderCart() rewrites it to an empty order.
+  e.preventDefault();
+  if (!cart.length) return;
+  const url = $("go").href;
+  try { localStorage.setItem(LAST_KEY, JSON.stringify({ at: Date.now(), cart })); } catch {}
+  cart = [];
+  setPanel(false);
+  renderCart();
+  $("sent").hidden = false;           // after renderCart, which would hide it
+  $("bar").classList.add("up");
+  $("barrow").hidden = true;
+  window.location.href = url;
+});
+
+$("restore").addEventListener("click", () => {
+  const saved = loadLast();
+  if (saved) {
+    cart = saved;
+    reconcileCart();                  // prices and items from the live menu
+  }
+  setSent(false);
+  renderCart();
+});
+
+$("dismiss").addEventListener("click", () => { setSent(false); renderCart(); });
+
+/* Two tabs used to keep two separate carts in memory while sharing one in
+   storage, so an old tab could send an old order. Every tab now follows
+   whatever was saved last, and a page restored with the Back button
+   re-reads storage instead of trusting what it had in memory. */
+function resync() {
+  if (!MENU.length) return;
+  cart = loadCart();
+  reconcileCart();
+  if (cart.length === 0 && loadLast()) { $("sent").hidden = false; }
+  else if (!loadLast()) { $("sent").hidden = true; }
+  renderCart();
+}
+window.addEventListener("storage", (e) => {
+  if (e.key === CART_KEY || e.key === LAST_KEY) resync();
+});
+window.addEventListener("pageshow", (e) => { if (e.persisted) resync(); });
 
 boot();
