@@ -67,7 +67,10 @@ const IMG_DIR = join(ROOT, "public", "img");
    webp beats jpg beats png when the same product has more than one
    file, so dropping in a smaller webp later supersedes the original
    without anyone having to delete anything. */
-const IMG_EXT = ["webp", "avif", "jpg", "jpeg", "png"];
+// jfif is plain JPEG under another name (Windows and WhatsApp save
+// photos that way). Last in the list so it never replaces a photo that
+// already shows; it only fills in for products that have nothing else.
+const IMG_EXT = ["webp", "avif", "jpg", "jpeg", "png", "jfif"];
 
 // Files in public/img that are part of the site's furniture, not
 // products. Matched on slug, so keto-mark.png and keto-mark.webp are
@@ -254,7 +257,7 @@ function readRows() {
   return { rows: null, source: null };
 }
 
-function main() {
+async function main() {
   const { rows, source } = readRows();
   if (!rows) {
     console.error(
@@ -340,10 +343,16 @@ function main() {
     const column = clean(cell(row, "image"));
     const onDisk = images.get(slug(name));
     if (column) entry.image = column;
-    else if (onDisk) entry.image = `img/${encodeURIComponent(onDisk.file)}`;
+    else if (onDisk) {
+      entry.image = `img/${encodeURIComponent(onDisk.file)}`;
+      entry._src = onDisk.file;      // for optimizePhotos(); stripped below
+    }
 
     items.push(entry);
   }
+
+  const optimized = await optimizePhotos(items);
+  for (const it of items) delete it._src;
 
   mkdirSync(dirname(OUT_JSON), { recursive: true });
   writeFileSync(OUT_JSON, JSON.stringify(items, null, 1), "utf8");
@@ -386,6 +395,7 @@ function main() {
   const used = new Set(items.map((i) => slug(i.name)).filter((k) => images.has(k)));
   const withPhoto = items.filter((i) => i.image).length;
   console.log(`  ${withPhoto} of ${items.length} item(s) have a photo`);
+  if (optimized) console.log(`  ${optimized}`);
 
   /* The stand-in is referenced by every product that has no photo of its
      own, so if it goes missing that is not one broken card, it is all of
@@ -453,4 +463,64 @@ function editDistance(a, b) {
   return prev[b.length];
 }
 
-main();
+/* ---------- photo resizing ----------
+   Photos arrive straight off a phone: 2-4 MB, 3000+ px wide, shown in a
+   76 px square on a phone or a 150 px tall band on a laptop. Serving the
+   originals made the page about 3 MB, which is slow on mobile data and
+   was the one thing PageSpeed still flagged.
+
+   So every deploy makes two small WebP copies of each product photo in
+   public/img/opt/ (240 px for the phone thumbnail, 720 px for the laptop
+   card) and the menu points at those. The originals stay where they are
+   and are never touched; uncle keeps uploading photos exactly as before.
+
+   If sharp cannot load for any reason, this logs a warning and the site
+   falls back to the original files, so a resize problem can never stop a
+   deploy. */
+const OPT_DIR = join(IMG_DIR, "opt");
+const SIZES = { sm: 240, lg: 720 };
+
+async function optimizePhotos(items) {
+  const todo = items.filter((i) => i._src);
+  if (!todo.length) return "";
+
+  let sharp;
+  try {
+    sharp = (await import("sharp")).default;
+  } catch {
+    return "WARNING: sharp not installed; serving original photos unresized";
+  }
+
+  mkdirSync(OPT_DIR, { recursive: true });
+  const done = new Map();          // one source file can serve several rows
+  let failed = 0;
+
+  for (const it of todo) {
+    const key = slug(it.name);
+    if (!done.has(it._src)) {
+      try {
+        for (const [tag, px] of Object.entries(SIZES)) {
+          await sharp(join(IMG_DIR, it._src))
+            .rotate()                // honour the phone's EXIF orientation
+            .resize({ width: px, height: px, fit: "inside", withoutEnlargement: true })
+            .webp({ quality: 72 })
+            .toFile(join(OPT_DIR, `${key}-${tag}.webp`));
+        }
+        done.set(it._src, key);
+      } catch (e) {
+        failed++;
+        console.log(`  WARNING: could not resize ${it._src} (${e.message}); using the original`);
+        done.set(it._src, null);
+      }
+    }
+    const k = done.get(it._src);
+    if (k) {
+      it.image = `img/opt/${k}-lg.webp`;
+      it.image_sm = `img/opt/${k}-sm.webp`;
+    }
+  }
+  const ok = [...done.values()].filter(Boolean).length;
+  return `resized ${ok} photo(s) to WebP${failed ? `, ${failed} failed` : ""}`;
+}
+
+await main();
