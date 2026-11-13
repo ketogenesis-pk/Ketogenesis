@@ -365,10 +365,22 @@ const PLACEHOLDER = "img/placeholder.webp";
 // match them to searches; the logo stand-in stays alt="" because it is
 // decoration, not a picture of the product.
 
-function card(m) {
+/* Resized copies come from tools/build_menu.mjs: image_sm (240px) for the
+   76px phone thumbnail, image (720px) for the wide laptop card. The browser
+   picks one from srcset, so a phone never downloads the big one.
+
+   The first card is the largest thing on screen when the page opens
+   (PageSpeed's "LCP"), so it loads straight away at high priority; the
+   rest stay lazy and load as they scroll into view. */
+function card(m, i) {
+  const load = i === 0 ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"';
+  const src = m.image_sm
+    ? `src="${esc(m.image_sm)}" srcset="${esc(m.image_sm)} 240w, ${esc(m.image)} 720w"
+       sizes="(min-width:600px) 460px, 76px"`
+    : `src="${esc(m.image || "")}"`;
   const img = m.image
-    ? `<img class="thumb" src="${esc(m.image)}" alt="${esc(m.name)}" loading="lazy">`
-    : `<img class="thumb ph" src="${PLACEHOLDER}" alt="" loading="lazy">`;
+    ? `<img class="thumb" ${src} alt="${esc(m.name)}" ${load}>`
+    : `<img class="thumb ph" src="${PLACEHOLDER}" alt="" ${load}>`;
   return `<article class="item">
   ${img}
   <div class="body">
