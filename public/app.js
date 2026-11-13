@@ -361,10 +361,13 @@ function macroStrip(m, serving) {
    a correctly named file into public/img replaces it on the next deploy;
    see tools/build_menu.mjs for the naming rule. */
 const PLACEHOLDER = "img/placeholder.webp";
+// Real photos carry the product name as alt text so Google Images can
+// match them to searches; the logo stand-in stays alt="" because it is
+// decoration, not a picture of the product.
 
 function card(m) {
   const img = m.image
-    ? `<img class="thumb" src="${esc(m.image)}" alt="" loading="lazy">`
+    ? `<img class="thumb" src="${esc(m.image)}" alt="${esc(m.name)}" loading="lazy">`
     : `<img class="thumb ph" src="${PLACEHOLDER}" alt="" loading="lazy">`;
   return `<article class="item">
   ${img}

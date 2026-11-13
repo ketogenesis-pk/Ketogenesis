@@ -176,6 +176,11 @@ input[type=search]:focus-visible{outline:2px solid var(--red);outline-offset:1px
    as the chips move under it. */
 .chips{display:flex;gap:7px;overflow-x:auto;padding:11px 0 3px;
        scrollbar-width:none;scroll-behavior:smooth}
+/* Layout shift (CLS): the chips are added by app.js after the menu loads,
+   and on a wide screen the row used to grow from 14px to 44px at that
+   moment, shoving the whole menu down. Reserving the row's height up
+   front means nothing moves when they arrive. */
+.chips{min-height:44px}
 .chips::-webkit-scrollbar{display:none}
 .chips.more{
   -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 46px),transparent);
@@ -248,6 +253,12 @@ input[type=search]:focus-visible{outline:2px solid var(--red);outline-offset:1px
    a bordered card there. When product photos arrive, .thumb already has a
    place at the top of each card. */
 #list{display:block}
+/* Same idea for the menu itself: until menu.json arrives the list is
+   empty, so the footer sat near the top of the screen and was then
+   pushed off it. Holding a screen's worth of space keeps it below the
+   fold from the start. :empty stops matching the moment cards (or the
+   "could not load" message) are inserted. */
+#list:empty{min-height:100vh}
 .item{padding:18px 0;border-bottom:1px solid var(--line);display:flex;gap:14px}
 .thumb{flex:0 0 76px;width:76px;height:76px;border-radius:10px;object-fit:cover;
        background:var(--wash);border:1px solid var(--line)}
